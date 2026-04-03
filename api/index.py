@@ -11,7 +11,6 @@ class handler(BaseHTTPRequestHandler):
             "plata": "https://es.investing.com/commodities/silver",
             "carbon": "https://es.investing.com/commodities/coal-cme-futures",
             "hierro": "https://es.investing.com/commodities/iron-ore-62-cfr-futures",
-            "oro": "https://es.investing.com/commodities/gold"
         }
 
         # 2. Leer qué mineral pide el usuario (ej: /api?m=plata)
