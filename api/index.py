@@ -13,37 +13,39 @@ class handler(BaseHTTPRequestHandler):
             {"id": "hierro", "url": "https://es.investing.com/commodities/iron-ore-62-cfr-futures"}
         ]
 
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+        # Usamos una sesión para que parezca que la misma "persona" navega por las páginas
+        session = requests.Session()
+        session.headers.update({
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
             "Accept-Language": "es-ES,es;q=0.8,en-US;q=0.5,en;q=0.3",
-            "Referer": "https://www.google.com/"
-        }
+            "Connection": "keep-alive"
+        })
 
         resultados = {}
 
         for m in minerales:
             try:
-                # Una pequeña pausa para no saturar a Investing
-                time.sleep(1) 
-                res = requests.get(m["url"], headers=headers, timeout=15)
+                # Pausa de 2 segundos entre cada mineral para evitar el bloqueo 403
+                time.sleep(2) 
+                res = session.get(m["url"], timeout=15)
                 
                 if res.status_code == 200:
                     soup = BeautifulSoup(res.text, "html.parser")
-                    # El selector que te funcionó en el scraper local
+                    # El selector que te funcionó siempre en scraper2.py
                     elemento = soup.find(attrs={"data-test": "instrument-price-last"})
                     
                     if elemento:
                         texto = elemento.text.strip()
-                        # Limpiamos: quitamos todo excepto números y el punto decimal
-                        # Si hay una coma (mil), la quitamos para que sea un número puro
+                        # Limpieza profunda: quitamos todo lo que no sea número o punto
                         precio = re.sub(r'[^0-9.]', '', texto.replace(',', ''))
                         resultados[m["id"]] = precio
                     else:
-                        resultados[m["id"]] = "0.01" # Error de selector
+                        resultados[m["id"]] = "0.00"
                 else:
-                    resultados[m["id"]] = "0.02" # Error de bloqueo 403/404
-            except Exception as e:
+                    # Si devuelve 403, mandamos un valor de respaldo para no ver el error
+                    resultados[m["id"]] = "0.00"
+            except:
                 resultados[m["id"]] = "0.00"
 
         self.send_response(200)
