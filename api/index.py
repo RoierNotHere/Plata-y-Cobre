@@ -6,46 +6,42 @@ import re
 
 class handler(BaseHTTPRequestHandler):
     def do_GET(self):
-        # Intentamos con la Plata que es tu URL base
-        url = "https://es.investing.com/commodities/silver"
-        
-        # Headers mucho más completos para evitar el 403
+        # Configuramos solo Plata y Cobre de Yahoo Finance
+        minerales = [
+            {"id": "plata", "url": "https://finance.yahoo.com/quote/SI=F/"},
+            {"id": "cobre", "url": "https://finance.yahoo.com/quote/HG=F/"}
+        ]
+
         headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-            "Accept-Language": "es-ES,es;q=0.8,en-US;q=0.5,en;q=0.3",
-            "DNT": "1",
-            "Connection": "keep-alive",
-            "Upgrade-Insecure-Requests": "1"
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"
         }
 
-        try:
-            # Usamos una sesión para mantener las cookies, esto ayuda a saltar bloqueos
-            session = requests.Session()
-            res = session.get(url, headers=headers, timeout=15)
-            
-            if res.status_code == 200:
-                soup = BeautifulSoup(res.text, "html.parser")
-                # El selector que confirmaste en tu scraper2.py
-                elemento = soup.find(attrs={"data-test": "instrument-price-last"})
-                
-                if elemento:
-                    texto = elemento.text.strip()
-                    # Limpiamos todo excepto números y puntos
-                    precio_limpio = re.sub(r'[^0-9.]', '', texto.replace(',', '.'))
-                    resultado = {"precio": precio_limpio, "status": "success"}
-                else:
-                    resultado = {"precio": "0.00", "status": "No se encontro el selector"}
-            else:
-                resultado = {"precio": "0.00", "status": f"Bloqueo de Investing: {res.status_code}"}
-        
-        except Exception as e:
-            resultado = {"precio": "0.00", "status": str(e)}
+        resultados = {}
 
+        for m in minerales:
+            try:
+                res = requests.get(m["url"], headers=headers, timeout=10)
+                if res.status_code == 200:
+                    soup = BeautifulSoup(res.text, "html.parser")
+                    # El selector que confirmamos que tiene el número limpio
+                    elemento = soup.find("span", {"data-testid": "qsp-price"})
+                    
+                    if elemento:
+                        # Quitamos comas y dejamos solo el número decimal
+                        precio = re.sub(r'[^0-9.]', '', elemento.text.strip().replace(',', ''))
+                        resultados[m["id"]] = precio
+                    else:
+                        resultados[m["id"]] = "0.00"
+                else:
+                    resultados[m["id"]] = "0.00"
+            except:
+                resultados[m["id"]] = "0.00"
+
+        # Respuesta en formato JSON
         self.send_response(200)
         self.send_header('Content-type', 'application/json')
         self.send_header('Access-Control-Allow-Origin', '*')
         self.end_headers()
         
-        self.wfile.write(json.dumps(resultado).encode())
+        self.wfile.write(json.dumps(resultados).encode())
         return
